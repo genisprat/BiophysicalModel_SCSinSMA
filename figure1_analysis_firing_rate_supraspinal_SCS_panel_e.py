@@ -1,7 +1,9 @@
+
 import pickle
 from sys import path
-path.insert(1, '/Users/genis/Dropbox/python3_functions/')
-path.insert(1, '/Users/genis/Dropbox/SCS-SMA/neuralnetwork/code/')
+#change these paths accordingly
+path.insert(1, '/Users/genis/Desktop/SCSinSMA/BiophysicalModel_SCSinSMA/python3_functions')
+path.insert(1, '/Users/genis/Desktop/SCSinSMA/BiophysicalModel_SCSinSMA/')
 path.append('../code')
 
 import tools_analysis as tl

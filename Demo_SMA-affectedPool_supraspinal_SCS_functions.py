@@ -3,7 +3,7 @@ sys.path.append('../code')
 
 from neuron import h
 import cells as cll
-
+import time as time
 import random
 import matplotlib.pyplot as plt
 import numpy as np
@@ -12,59 +12,49 @@ import neuron_functions as nf
 
 import importlib as impl
 
+t0=time.time()
+
 impl.reload(nf)
 
 
 h.load_file('stdrun.hoc')
 
-MN_type=sys.argv[2] #MN type is either SMA or WT
-
-
-record_membrane=[0,1] #record membrane of these motoneurons
-num_MN=100
 
 
 ### MNfr vs supraspinal####
-rate_supraspinal=float(sys.argv[1])
-num_supraspinal=200
-num_scs= 0  # Firing rate (in Hz)
-rate_scs= 40
 
-Name_file_record="Only_supraspinal"+MN_type+str(num_MN)+"_supraspinal"+str(num_supraspinal)+"fr_"+str(rate_supraspinal)+"_SCSfreq"+str(rate_scs)+"_SCS_num"+str(num_scs)+".pickle"
-
-
-### MNfr vs SCS####
-# num_scs=int(sys.argv[1])
-# num_supraspinal=0
-# rate_supraspinal = 20  # Firing rate (in Hz)
-# rate_scs= 40
-#Name_file_record="Only_SCS"+MN_type+str(num_MN)+"_supraspinal"+str(num_supraspinal)+"fr_"+str(rate_supraspinal)+"_SCSfreq"+str(rate_scs)+"_SCS_num"+str(num_scs)+".pickle"
-
-#def create_exponential_synapses_gamma(source,target,synaptic_weight,shape,tau):
-
-
+rate_supraspinal=20
 
 
 #path_simulations="/Users/genis/SCS-SMA_Model_Results/Results/simulations/MNs_supraspinal_SCS/"
-path_simulations="/Users/genis/SCS-SMA_Model_Results/Results/simulations/MNs_SCS/"
+path_simulations="/Users/genis/SCS-SMA_Model_Results/Results/simulations/MNs_supraspinal_SCS/"
 
 # Create a list to hold the supraspinal neurons
 supraspinal_neurons = []
 
 # Define the parameters
-#num_supraspinal = 600  # Number of supraspinal neurons
+num_supraspinal = 200  # Number of supraspinal neurons
+
+#num_supraspinal=0
+
+rate_supraspinal = 20  # Firing rate (in Hz)
+simulation_duration = 1000  # Simulation duration (in ms)
+
+
+### immediate effects figure #####
+scs_neurons=[]
+num_scs=11
+rate_scs= 40
+
+# # 50% SMA, 70 survival
+num_SMA_MN=35
+num_WT_MN=35
+num_MN=num_SMA_MN+num_WT_MN
+p_recover_sensory=0.5
 
 
 
-simulation_duration = 5000  # Simulation duration (in ms)
-
-
-
-
-#synaptic_weight=0.00037 #this number is set to an EPSP is 212 muV
-
-
-
+Name_file_record="Dema_SMA_MNPool_SMA"+str(num_SMA_MN)+"WT"+str(num_WT_MN)+"MNs_supraspinal"+str(num_supraspinal)+"fr_"+str(rate_supraspinal)+"_SCSfreq"+str(rate_scs)+"_SCS_num"+str(num_scs)+".pickle"
 
 
 #### Create a population of supraspinal neurons and record its spikes
@@ -78,34 +68,38 @@ pulse_times=nf.create_spike_recorder_input_neurons(scs_neurons)
 #### Create a population of MNs  and record its spikes
 
 MNs=[]
-MNs=[ cll.MotoneuronNoDendrites(MN_type) for imn in range(num_MN) ]
+MNs=[ cll.MotoneuronNoDendrites("WT") for imn in range(num_WT_MN) ]
+
+for i in range(num_SMA_MN):
+    MNs.append(cll.MotoneuronNoDendrites("SMA"))
+
 MN_spike_times=nf.create_spike_recorder_MNs(MNs)
 
 
+
 #### Connect a population of scs pulses and poisson  to MNs
-synaptic_weight_WT=0.00037 #this number is set to an EPSP is 212 muV
+synaptic_weight=0.00037 #this number is set to an EPSP is 212 muV
+SMA_synaptic_weight=0.00037/3 #this number is set to an EPSP is 212 muV
 shape=1.2
 tau=2
-W_supraspinal=np.random.gamma(shape, scale=synaptic_weight_WT / shape,size=[num_supraspinal,num_MN])
-syn_supraspinal,nc_supraspinal=nf.create_exponential_synapses(supraspinal_neurons,MNs,W_supraspinal,tau)
 
-synaptic_weight_sensory_SMA=0.00037/1.5 #this number is set to an EPSP is 212 muV
-if MN_type=="SMA":
-    W_scs_SMA=np.random.gamma(shape, scale=synaptic_weight_sensory_SMA / shape,size=[num_scs,num_MN])
-elif MN_type=="WT":
-    W_scs_SMA = np.random.gamma(shape, scale=synaptic_weight_WT / shape, size=[num_scs, num_MN])
+W_scs=np.zeros((num_scs,num_WT_MN+num_SMA_MN))
+for i in range(num_scs):
+    for j in range(num_WT_MN+num_SMA_MN):
+        if np.random.rand()<p_recover_sensory:
+            W_scs[i][j]=np.random.gamma(shape, scale=synaptic_weight / shape)
+        else:
+            W_scs[i][j] = np.random.gamma(shape, scale=SMA_synaptic_weight / shape)
 
-syn_scs,nc_scs=nf.create_exponential_synapses(scs_neurons,MNs,W_scs_SMA,tau)
+syn_scs,nc_scs=nf.create_exponential_synapses(scs_neurons,MNs,W_scs,tau)
 
 
-#record motoneuron membrane
+if num_supraspinal>0:
+    W_supraspinal=np.random.gamma(shape, scale=synaptic_weight / shape,size=[num_supraspinal,num_MN])
+    syn_supraspinal,nc_supraspinal=nf.create_exponential_synapses(supraspinal_neurons,MNs,W_supraspinal,tau)
+else:
+    W_supraspinal=0
 
-if len(record_membrane)>0:
-    membrane=[]
-    time_membrane=[]
-    for i in record_membrane:
-        membrane.append( h.Vector().record(MNs[i].soma(0.5)._ref_v) )
-        time_membrane.append( h.Vector().record(h._ref_t) )
 
 # Create a run control for the simulation
 h.finitialize()
@@ -133,14 +127,27 @@ plt.figure()
 
 for i in range(num_supraspinal): plt.plot(supraspinal_spikes[i],i*np.ones(len(supraspinal_spikes[i])),".")
 plt.xlim([0,simulation_duration])
-plt.figure()
+plt.xticks([0,simulation_duration/2,simulation_duration])
+plt.title("Supraspinal inputs")
+plt.xlabel("Time (ms)")
 
+
+plt.figure()
 for i in range(num_scs): plt.plot(pulse_times[i],i*np.ones(len(pulse_times[i])),"k.")
+plt.xticks([0,simulation_duration/2,simulation_duration])
+plt.title("Sensory Afferents")
 plt.xlim([0,simulation_duration])
+plt.xlabel("Time (ms)")
+
 
 plt.figure()
 for i in range(num_MN): plt.plot(MN_spike_times[i],i*np.ones(len(MN_spike_times[i])),"k.")
 plt.xlim([0,simulation_duration])
+plt.xticks([0,simulation_duration/2,simulation_duration])
+plt.title("SMA-affected Motoneuron Pool")
+plt.xlabel("Time (ms)")
+
+
 
 
 data={}
@@ -153,14 +160,23 @@ data["supraspinal_rate"]=rate_supraspinal
 data["num_supraspinal"]=num_supraspinal
 data["simulation_duration"]=simulation_duration
 data["num_MN"]=num_MN
-data["synaptic_weight_WT"]=synaptic_weight_WT
-data["synaptic_weight_sensory_SMA"]=synaptic_weight_sensory_SMA
+data["num_SMA_MN"]=num_SMA_MN
+data["num_WT_MN"]=num_WT_MN
+data["synaptic_weight"]=synaptic_weight
+data["synaptic_weight_sensory_SMA"]=SMA_synaptic_weight
+data["W_supraspinal"]=W_supraspinal
+data["W_scs"]=W_scs
+
+
+
+
 
 f=open(path_simulations+Name_file_record,"wb")
 pickle.dump(data,f)
 f.close()
 
-
+t1=time.time()
+print(t1-t0)
 
 #plt.figure()
 #plt.plot(time_membrane[0],membrane[0],"k-")
