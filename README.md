@@ -1,5 +1,5 @@
 # BiophysicalModel_SCSinSMA
- Biophysical Model use in Prat-Ortega et al 2024
+ Biophysical Model used in Prat-Ortega et al 2024
 
 
 This software has been developped in python 3.9 and NEURON 8.1.0.
